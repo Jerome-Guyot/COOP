@@ -154,17 +154,18 @@ let negate_clause clause =
   | "=" -> String.sub clause 0 ind ^ "!=" ^ String.sub clause (ind+1) (String.length clause - ind - 1)
   | "<" -> String.sub clause 0 ind ^ ">=" ^ String.sub clause (ind+1) (String.length clause - ind - 1)
   | ">" -> String.sub clause 0 ind ^ "<=" ^ String.sub clause (ind+1) (String.length clause - ind - 1)
-  | "<=" -> String.sub clause 0 ind ^ ">" ^ String.sub clause (ind+2) (String.length clause - ind - 1)
-  | ">=" -> String.sub clause 0 ind ^ "<" ^ String.sub clause (ind+2) (String.length clause - ind - 1)
-  | "!=" -> String.sub clause 0 ind ^ "=" ^ String.sub clause (ind+2) (String.length clause - ind - 1)
+  | "<=" -> String.sub clause 0 ind ^ ">" ^ String.sub clause (ind+2) (String.length clause - ind - 2)
+  | ">=" -> String.sub clause 0 ind ^ "<" ^ String.sub clause (ind+2) (String.length clause - ind - 2)
+  | "!=" -> String.sub clause 0 ind ^ "=" ^ String.sub clause (ind+2) (String.length clause - ind - 2)
   | _ -> failwith "op not supported"
 
 let is_neq clause =
-  let op, ind = find_op clause in
+  let op, ind = find_op clause in 
   match op with
-  | "!=" -> [
-      String.sub clause 0 ind ^ "<" ^ String.sub clause (ind+2) (String.length clause - ind - 1);
-      String.sub clause 0 ind ^ ">" ^ String.sub clause (ind+2) (String.length clause - ind - 1);
+  | s when s = "!=" -> 
+    [
+      String.sub clause 0 ind ^ "<" ^ String.sub clause (ind+2) (String.length clause - ind - 2);
+      String.sub clause 0 ind ^ ">" ^ String.sub clause (ind+2) (String.length clause - ind - 2);
     ]
   | _ -> [clause]
 
@@ -178,6 +179,7 @@ let initialize_problem model clauses_table =
     if i > 0 then
       is_neq (Hashtbl.find clauses_table (string_of_int i))
     else
+
       is_neq (negate_clause (Hashtbl.find clauses_table (string_of_int (-i))))
   in
   (* we go through the string model, when we find v or a space we ignore it and when we find a positive or negative integer we add the clauses *)
@@ -188,7 +190,9 @@ let initialize_problem model clauses_table =
   let m' = String.split_on_char ' ' m in 
   let val_model = List.map ( fun s -> int_of_string s ) m' in
 
+
   List.iter ( fun i -> clauses := !clauses @ (ind_to_clauses i ) )  val_model ;
+
   List.iter (fun c -> problem := !problem ^ "\t" ^ c ^ "\n") !clauses ;
   problem := !problem ^"end";
 
@@ -265,10 +269,13 @@ let main () =
       let ht,f = hash s' in
 
       erase_parenthesis ht ; (* car le parseur de Lp aime pas *)
+      
+      (* pour le debuggage *)
+      (*
       let print_hashtable ht =
       Hashtbl.iter (fun k v -> Printf.printf "%s -> %s\n" k v) ht  
-      in 
-      (* print_hashtable ht ; *)
+      in print_hashtable ht ;
+      *)
 
       (* ecriture en cnf dimacs *)
       output output_file f ;
@@ -278,7 +285,10 @@ let main () =
 
       let stat = ref status in 
       let model_val = ref model in 
+
       let problem = ref (initialize_problem !model_val ht) in
+     
+
 
 (*  corps de la fonction d'échange entre les programmes *) 
 
@@ -287,8 +297,9 @@ let main () =
        while (!stat <> "s UNSATISFIABLE") && ( not !cond )  do 
 
             (* appel à glpk *)
+            
             problem := initialize_problem !model_val ht ;
-
+          
             let solve_problem problem =
               Lp_glpk.solve ~term_output:false problem 
             in 
