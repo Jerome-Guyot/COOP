@@ -1,0 +1,1 @@
+ (  a < 7  or  b > 6  or  d > 7 ) and ( c > 7 or  a > 7  or  b > 5  ) 
