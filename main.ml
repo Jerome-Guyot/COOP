@@ -267,7 +267,8 @@ let main () =
       erase_parenthesis ht ; (* car le parseur de Lp aime pas *)
       let print_hashtable ht =
       Hashtbl.iter (fun k v -> Printf.printf "%s -> %s\n" k v) ht  
-      in print_hashtable ht ;
+      in 
+      (* print_hashtable ht ; *)
 
       (* ecriture en cnf dimacs *)
       output output_file f ;
