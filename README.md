@@ -2,6 +2,7 @@
 Projet logique : COOP
 
 Pour installer glucose : https://github.com/wadoon/glucose
+
 Pour installer opam lp et opam lp-glpk : opam install lp et opam install lp-glpk
 
 Pour compiler le projet, il faut avoir les packages lp et lp_glpk, puis effectuer eval $(opam env) et enfin faire make
