@@ -447,8 +447,9 @@ let main () =
 
                | Error msg -> 
 
-                    (* ajout de la nouvelle clause dans le output file *) 
-                    let clause_add = negate_clause (String.sub !model_val 2 (String.length !model_val -4)) in
+                    (* ajout de la nouvelle clause dans le output file par la méthode des S_i *) 
+                    let model_clean = (String.sub !model_val 2 (String.length !model_val -4))  in
+                    let clause_add  = negate_clause (String.concat " " (s_i_iteree model_clean ht)) in
                     add_clause_to_file output_file "aux.cnf" clause_add ;
 
                     let (status', model') = run_glucose output_file in
@@ -468,47 +469,6 @@ let main () =
     | exn -> Printf.printf "Error: %s\n" (Printexc.to_string exn)
 
 
-let main2 () = 
-
-  let args = Sys.argv in
-  if Array.length args < 2 then
-    Printf.printf "Usage: %s <input_file> \n" args.(0)
-  else
-
-    let input_file = args.(1) in
-    let output_file = "out.cnf" in
-
-    try 
-      
-      (* transformation de la formule de base en clauses et hashtable *)
-      let s = read_txt input_file in
-      print_string ( "Formule : "^s ^"\n" ) ; 
-      let s' = List.rev( process s) in
-      let ht,f = hash s' in
-
-      erase_parenthesis ht ; (* car le parseur de Lp aime pas *)
-      
-      (* pour le debuggage *)
-      (*
-      let print_hashtable ht =
-      Hashtbl.iter (fun k v -> Printf.printf "%s -> %s\n" k v) ht  
-      in print_hashtable ht ;
-      *)
-
-      (* ecriture en cnf dimacs *)
-      output output_file f ;
-
-      (* appel à glucose *)
-      let status, model = run_glucose output_file in
-      let model_clean = String.sub model 2 (String.length model -4) in
-
-      let res = String.concat " " (s_i_iteree model_clean ht) in
-      print_string ("S_min : " ^res ^"\n")
-
-    with
-      | Sys_error msg -> Printf.printf "Error: %s\n" msg
-      | exn -> Printf.printf "Error: %s\n" (Printexc.to_string exn)
-
-let () = main2 ()
+let () = main ()
 
 
