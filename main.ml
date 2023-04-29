@@ -246,6 +246,130 @@ let add_clause_to_file filename file_aux clause =
   copy_file file_aux filename
 
 
+(* implémentation de l'algorithme 3*)
+
+let sublist l start length = 
+
+    let rec aux liste length indice = 
+      match liste with 
+        [] -> if length > 0 then (print_int length ; failwith "failed sub_list") else []
+        | t :: q when indice < start -> aux q length (indice+1)
+        | t :: q -> if length > 0 then [t] @ ( aux q (length -1) (indice+1) ) else []
+    in aux l length 0
+
+
+let rec dichotomie_iteree liste_inc liste_reste ht = (* à corriger *)
+
+  let solve_problem problem =
+          Lp_glpk.solve ~term_output:false problem 
+    in 
+
+    let result_is_ok problem = 
+      match solve_problem problem with
+          | Ok (obj, xs) -> true
+          | Error msg -> false
+    in
+
+  let gauche = ref 0 in 
+  let droite = ref (List.length (liste_inc @ liste_reste )-1) in 
+
+  let m = ref ((!droite + !gauche) / 2) in
+  let model_m = ref (sublist (liste_inc @ liste_reste ) 0 (!m+1)) in 
+  let str_model_m = ref ("v "^(String.concat " " !model_m)^" 0") in
+
+  let problem = ref (initialize_problem (!str_model_m) ht) in
+
+  while (!droite - !gauche > 1) do
+
+    m := (!droite + !gauche) / 2 ;
+    model_m := sublist (liste_inc @ liste_reste ) 0 (!m+1) ;
+    str_model_m := "v "^(String.concat " " !model_m)^" 0" ;
+
+    problem := (initialize_problem (!str_model_m) ht) ;
+
+    if result_is_ok !problem then gauche := !m else droite := !m ;
+  done ;
+
+  m := (!droite + !gauche) / 2 ;
+
+  model_m := sublist (liste_inc @ liste_reste ) 0 (!m+1) ;
+  str_model_m := "v "^(String.concat " " !model_m)^" 0" ;
+  problem := (initialize_problem (!str_model_m) ht) ;
+
+
+  let c_m = if (result_is_ok !problem) then sublist (liste_inc @ liste_reste ) !droite 1  else sublist (liste_inc @ liste_reste ) !gauche 1 in
+  let ind_cm = if (result_is_ok !problem) then !droite  else !gauche in
+
+  let result = 
+  if ( (ind_cm) <= List.length liste_inc -1 ) (* on a raffiné au max *)
+    then liste_inc
+  else (
+
+    let gauche' = ref 0 in 
+    let droite' = ref (ind_cm - List.length liste_inc) in 
+
+    let m' = ref ((!droite' + !gauche') / 2) in
+    let model_m' = ref (liste_inc @ (sublist liste_reste 0 (!m'+1)) ) in 
+    let str_model_m' = ref ("v "^(String.concat " " !model_m')^" 0") in
+
+    let problem' = ref (initialize_problem !str_model_m' ht) in
+
+    while (!droite' - !gauche' > 1) do 
+
+      m' := (!droite' + !gauche') / 2 ;
+      model_m' := (liste_inc @ (sublist liste_reste 0 (!m'+1)) ) ;
+      str_model_m' := "v "^(String.concat " " !model_m')^" 0" ;
+
+      problem' := initialize_problem !str_model_m' ht ;
+
+      gauche' := if result_is_ok !problem' then !gauche' else !m' ;
+      droite' := if result_is_ok !problem' then !m' else !droite' ;
+    done ;
+
+    m' := (!droite' + !gauche') / 2 ;
+    model_m' := (liste_inc @ (sublist liste_reste 0 (!m'+1)) ) ;
+    str_model_m' := "v "^(String.concat " " !model_m')^" 0" ;
+    problem' := initialize_problem !str_model_m' ht ;
+
+    let c_k = if (result_is_ok !problem') then sublist (liste_reste ) !gauche' 1  else sublist (liste_reste) !droite' 1 in 
+    let ind_ck = if (result_is_ok !problem') then !gauche' else !droite' in 
+
+    if ( ind_ck = ind_cm - List.length liste_inc ) 
+      then liste_inc @ c_m
+    else (
+
+      let new_reste = (sublist liste_reste 0 ind_ck) @ (sublist liste_reste (ind_ck+1) (ind_cm - List.length liste_inc - ind_ck -1 ) ) in
+      dichotomie_iteree (liste_inc @ c_k @ c_m )  new_reste ht
+    )
+   )
+in result
+
+
+
+
+(* il faut prend model sous la forme : "1 2 3 ... n " *)
+
+let s_i_iteree model_val ht =
+  let model = String.split_on_char ' ' model_val in
+
+  (* on ne fait pas ici l'optimisation avec les k_i et m_i *)
+  let n = List.length model -1 in
+  let i = ref 0 in   
+  let s_min = ref model in
+
+  while !i <= n do 
+    let s_i = dichotomie_iteree [] ( (sublist model !i (n- !i +1)) @ (sublist model 0 !i)) ht  in (* pour la liste circulaire *)
+
+    i := !i +1 ;
+    if (List.length s_i) < (List.length !s_min) 
+        then ( 
+            s_min := s_i ; 
+            )
+  done ;
+  print_string "\n" ;
+  !s_min
+
+
 
 
 (* main *)
@@ -344,6 +468,47 @@ let main () =
     | exn -> Printf.printf "Error: %s\n" (Printexc.to_string exn)
 
 
-let () = main ()
+let main2 () = 
+
+  let args = Sys.argv in
+  if Array.length args < 2 then
+    Printf.printf "Usage: %s <input_file> \n" args.(0)
+  else
+
+    let input_file = args.(1) in
+    let output_file = "out.cnf" in
+
+    try 
+      
+      (* transformation de la formule de base en clauses et hashtable *)
+      let s = read_txt input_file in
+      print_string ( "Formule : "^s ^"\n" ) ; 
+      let s' = List.rev( process s) in
+      let ht,f = hash s' in
+
+      erase_parenthesis ht ; (* car le parseur de Lp aime pas *)
+      
+      (* pour le debuggage *)
+      (*
+      let print_hashtable ht =
+      Hashtbl.iter (fun k v -> Printf.printf "%s -> %s\n" k v) ht  
+      in print_hashtable ht ;
+      *)
+
+      (* ecriture en cnf dimacs *)
+      output output_file f ;
+
+      (* appel à glucose *)
+      let status, model = run_glucose output_file in
+      let model_clean = String.sub model 2 (String.length model -4) in
+
+      let res = String.concat " " (s_i_iteree model_clean ht) in
+      print_string ("S_min : " ^res ^"\n")
+
+    with
+      | Sys_error msg -> Printf.printf "Error: %s\n" msg
+      | exn -> Printf.printf "Error: %s\n" (Printexc.to_string exn)
+
+let () = main2 ()
 
 
