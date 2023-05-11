@@ -101,6 +101,9 @@ let rec find_term lexemes =
   | Pao :: q ->
       let term, rest = extract_bracket q in
       parse_arith term, rest
+  | LSub :: q ->
+      let term, rest = find_term q in
+      Sub (AInt 0, term), rest
   | _ -> failwith "ERROR : invalid term"
 
 and lexeme_to_term lexemes =
